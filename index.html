@@ -1,0 +1,443 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Disciplined Entrepreneurship Canvas</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        }
+        
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.95;
+        }
+        
+        .sync-status {
+            display: inline-block;
+            margin-left: 15px;
+            padding: 5px 15px;
+            background: rgba(255,255,255,0.2);
+            border-radius: 20px;
+            font-size: 0.9em;
+        }
+        
+        .sync-status.synced {
+            background: rgba(76, 175, 80, 0.8);
+        }
+        
+        .sync-status.syncing {
+            background: rgba(255, 193, 7, 0.8);
+        }
+        
+        .controls {
+            padding: 20px 30px;
+            background: #f8f9fa;
+            border-bottom: 2px solid #e9ecef;
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .btn-success {
+            background: #28a745;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
+        }
+        
+        .canvas-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            padding: 30px;
+        }
+        
+        .canvas-section {
+            background: white;
+            border: 2px solid #e9ecef;
+            border-radius: 10px;
+            padding: 20px;
+            transition: all 0.3s ease;
+        }
+        
+        .canvas-section:hover {
+            border-color: #667eea;
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.1);
+            transform: translateY(-2px);
+        }
+        
+        .canvas-section h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .canvas-section textarea {
+            width: 100%;
+            min-height: 150px;
+            padding: 12px;
+            border: 2px solid #e9ecef;
+            border-radius: 5px;
+            font-family: inherit;
+            font-size: 0.95em;
+            resize: vertical;
+            transition: border-color 0.3s ease;
+        }
+        
+        .canvas-section textarea:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .last-updated {
+            text-align: center;
+            padding: 20px;
+            color: #6c757d;
+            font-size: 0.9em;
+            background: #f8f9fa;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        .user-info {
+            margin-left: auto;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .user-info input {
+            padding: 8px 12px;
+            border: 2px solid #dee2e6;
+            border-radius: 5px;
+            font-size: 0.95em;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Disciplined Entrepreneurship Canvas</h1>
+            <p>24-Step Framework for Building Your Business
+                <span class="sync-status" id="syncStatus">● Connecting...</span>
+            </p>
+        </div>
+        
+        <div class="controls">
+            <button class="btn btn-success" onclick="saveToCloud()">💾 Save to Cloud</button>
+            <button class="btn btn-primary" onclick="exportBackup()">📥 Download Backup</button>
+            <button class="btn btn-secondary" onclick="document.getElementById('fileInput').click()">📤 Load Backup</button>
+            <input type="file" id="fileInput" accept=".json" onchange="importBackup(event)">
+            
+            <div class="user-info">
+                <label for="userName">Your Name:</label>
+                <input type="text" id="userName" placeholder="Enter your name" value="">
+            </div>
+        </div>
+        
+        <div class="canvas-grid" id="canvasGrid"></div>
+        
+        <div class="last-updated" id="lastUpdated">
+            Last updated: Never
+        </div>
+    </div>
+
+    <!-- Firebase -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCqZipbVcGwLnDRAI3E49VlLfIF4VFZvCg",
+            authDomain: "de-canvas.firebaseapp.com",
+            projectId: "de-canvas",
+            storageBucket: "de-canvas.firebasestorage.app",
+            messagingSenderId: "124039739822",
+            appId: "1:124039739822:web:2b10bb9671a357f519f03f"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const canvasDocRef = doc(db, 'canvas', 'main_canvas');
+
+        const sections = [
+            "1. Market Segmentation",
+            "2. Select Beachhead Market",
+            "3. Build End User Profile",
+            "4. Calculate TAM",
+            "5. Persona Development",
+            "6. Full Life Cycle Use Case",
+            "7. High-Level Product Spec",
+            "8. Quantify Value Proposition",
+            "9. Identify Next 10 Customers",
+            "10. Define Core",
+            "11. Chart Competitive Position",
+            "12. Determine Customer DMU",
+            "13. Map Process to Acquire Customer",
+            "14. Calculate TAM Size",
+            "15. Design Business Model",
+            "16. Set Pricing Framework",
+            "17. Calculate LTV",
+            "18. Map Sales Process",
+            "19. Calculate CAC",
+            "20. Identify Key Assumptions",
+            "21. Test Key Assumptions",
+            "22. Define MVBP",
+            "23. Show Product is Awesome",
+            "24. Develop Product Plan"
+        ];
+
+        let canvasData = {};
+        let isLocalUpdate = false;
+
+        // Initialize canvas
+        function initCanvas() {
+            const grid = document.getElementById('canvasGrid');
+            grid.innerHTML = '';
+            
+            sections.forEach((section, index) => {
+                const sectionDiv = document.createElement('div');
+                sectionDiv.className = 'canvas-section';
+                
+                const sectionKey = `section_${index}`;
+                
+                sectionDiv.innerHTML = `
+                    <h2>${section}</h2>
+                    <textarea 
+                        id="${sectionKey}" 
+                        placeholder="Enter your notes here..."
+                        oninput="handleInput('${sectionKey}')"
+                    >${canvasData[sectionKey] || ''}</textarea>
+                `;
+                
+                grid.appendChild(sectionDiv);
+            });
+            
+            // Load username from localStorage
+            const savedName = localStorage.getItem('userName') || '';
+            document.getElementById('userName').value = savedName;
+        }
+
+        // Load from Firebase
+        async function loadFromCloud() {
+            try {
+                const docSnap = await getDoc(canvasDocRef);
+                
+                if (docSnap.exists()) {
+                    const data = docSnap.data();
+                    canvasData = data.canvasData || {};
+                    updateUI();
+                    updateLastUpdated(data.lastUpdated, data.updatedBy);
+                    updateSyncStatus('synced');
+                } else {
+                    console.log('No existing canvas found, starting fresh');
+                    updateSyncStatus('synced');
+                }
+            } catch (error) {
+                console.error('Error loading from cloud:', error);
+                updateSyncStatus('error');
+            }
+        }
+
+        // Save to Firebase
+        async function saveToCloud() {
+            try {
+                updateSyncStatus('syncing');
+                
+                const userName = document.getElementById('userName').value.trim() || 'Anonymous';
+                localStorage.setItem('userName', userName);
+                
+                isLocalUpdate = true;
+                
+                await setDoc(canvasDocRef, {
+                    canvasData: canvasData,
+                    lastUpdated: new Date().toISOString(),
+                    updatedBy: userName
+                });
+                
+                updateSyncStatus('synced');
+                console.log('Canvas saved successfully!');
+            } catch (error) {
+                console.error('Error saving to cloud:', error);
+                updateSyncStatus('error');
+                alert('Error saving to cloud. Please try again.');
+            } finally {
+                isLocalUpdate = false;
+            }
+        }
+
+        // Real-time listener
+        onSnapshot(canvasDocRef, (doc) => {
+            if (!isLocalUpdate && doc.exists()) {
+                const data = doc.data();
+                canvasData = data.canvasData || {};
+                updateUI();
+                updateLastUpdated(data.lastUpdated, data.updatedBy);
+                updateSyncStatus('synced');
+            }
+        });
+
+        // Update UI with current data
+        function updateUI() {
+            sections.forEach((section, index) => {
+                const sectionKey = `section_${index}`;
+                const textarea = document.getElementById(sectionKey);
+                if (textarea && canvasData[sectionKey] !== undefined) {
+                    textarea.value = canvasData[sectionKey];
+                }
+            });
+        }
+
+        // Handle input changes
+        window.handleInput = function(sectionKey) {
+            const textarea = document.getElementById(sectionKey);
+            canvasData[sectionKey] = textarea.value;
+        };
+
+        // Update sync status
+        function updateSyncStatus(status) {
+            const statusEl = document.getElementById('syncStatus');
+            statusEl.className = 'sync-status ' + status;
+            
+            if (status === 'synced') {
+                statusEl.textContent = '● Synced';
+            } else if (status === 'syncing') {
+                statusEl.textContent = '● Saving...';
+            } else if (status === 'error') {
+                statusEl.textContent = '● Error';
+            } else {
+                statusEl.textContent = '● Connecting...';
+            }
+        }
+
+        // Update last updated timestamp
+        function updateLastUpdated(timestamp, userName) {
+            if (timestamp) {
+                const date = new Date(timestamp);
+                const formatted = date.toLocaleString();
+                document.getElementById('lastUpdated').textContent = 
+                    `Last updated: ${formatted} by ${userName || 'Unknown'}`;
+            }
+        }
+
+        // Export backup (JSON)
+        window.exportBackup = function() {
+            const userName = document.getElementById('userName').value.trim() || 'Anonymous';
+            const dataStr = JSON.stringify({
+                canvasData: canvasData,
+                exportDate: new Date().toISOString(),
+                exportedBy: userName
+            }, null, 2);
+            
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `de-canvas-backup-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        };
+
+        // Import backup
+        window.importBackup = function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const imported = JSON.parse(e.target.result);
+                    canvasData = imported.canvasData || imported;
+                    updateUI();
+                    alert('Backup loaded successfully! Click "Save to Cloud" to sync with your team.');
+                } catch (error) {
+                    alert('Error loading backup file. Please check the file format.');
+                    console.error('Import error:', error);
+                }
+            };
+            reader.readAsText(file);
+            event.target.value = '';
+        };
+
+        // Make saveToCloud available globally
+        window.saveToCloud = saveToCloud;
+
+        // Initialize on load
+        initCanvas();
+        loadFromCloud();
+    </script>
+</body>
+</html>
