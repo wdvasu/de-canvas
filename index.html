@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Disciplined Entrepreneurship Canvas - PSE</title>
+    <script>
+        const originalWarn = console.warn;
+        console.warn = function(...args) {
+            const message = args.join(' ');
+            if (message.includes('tailwindcss') || message.includes('Babel')) {
+                return;
+            }
+            originalWarn.apply(console, args);
+        };
+    </script>
+    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react/18.2.0/umd/react.production.min.js"></script>
+    <script crossorigin src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.2.0/umd/react-dom.production.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.23.5/babel.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Firebase SDK -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCqZipbVcGwLnDRAI3E49VlLfIF4VFZvCg",
+            authDomain: "de-canvas.firebaseapp.com",
+            projectId: "de-canvas",
+            storageBucket: "de-canvas.firebasestorage.app",
+            messagingSenderId: "124039739822",
+            appId: "1:124039739822:web:2b10bb9671a357f519f03f"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getFirestore(app);
+        const canvasDocRef = doc(db, 'canvas', 'pse_main_canvas');
+
+        // Make available globally for the React app
+        window.firebaseReady = new Promise((resolve) => {
+            window.firebase = { db, canvasDocRef, getDoc, setDoc, onSnapshot };
+            resolve();
+        });
+    </script>
+    
+    <style>
+        [contenteditable] div,
+        [contenteditable] p,
+        [contenteditable] section,
+        [contenteditable] article {
+            max-width: none !important;
+            width: 100% !important;
+            float: none !important;
+            display: block !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+        }
+        [contenteditable] table {
+            width: 100% !important;
+            table-layout: auto !important;
+        }
+        [contenteditable] strong,
+        [contenteditable] em,
+        [contenteditable] b,
+        [contenteditable] i,
+        [contenteditable] u,
+        [contenteditable] a,
+        [contenteditable] span {
+            display: inline !important;
+            width: auto !important;
+        }
+        [contenteditable] ul,
+        [contenteditable] ol {
+            display: block !important;
+            width: 100% !important;
+            list-style-position: outside !important;
+            padding-left: 40px !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+        }
+        [contenteditable] ul {
+            list-style-type: disc !important;
+        }
+        [contenteditable] ol {
+            list-style-type: decimal !important;
+        }
+        [contenteditable] li {
+            display: list-item !important;
+            width: 100% !important;
+            margin-left: 0 !important;
+            margin-right: 0 !important;
+            padding-left: 10px !important;
+        }
+        .sync-indicator {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .sync-indicator.synced { background-color: #10b981; }
+        .sync-indicator.syncing { background-color: #f59e0b; }
+        .sync-indicator.error { background-color: #ef4444; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useRef } = React;
+
+        const DECanvas = () => {
+            const [activeTab, setActiveTab] = useState('progress');
+            const [expandedSections, setExpandedSections] = useState({});
+            const [canvasData, setCanvasData] = useState({});
+            const [lastSaved, setLastSaved] = useState(null);
+            const [filteredSteps, setFilteredSteps] = useState(null);
+            const [syncStatus, setSyncStatus] = useState('connecting');
+            const [lastUpdatedBy, setLastUpdatedBy] = useState(null);
+            const isLocalUpdate = useRef(false);
+            const unsubscribeRef = useRef(null);
+
+            const canvasStructure = [
+                {
+                    area: "Who is Your Customer?",
+                    steps: [
+                        { id: 1, title: "Market Segmentation", description: "Identify potential customer groups" },
+                        { id: 2, title: "Select a Beachhead Market", description: "Choose your initial target market" },
+                        { id: 3, title: "Build an End User Profile", description: "Detailed persona of your customer" },
+                        { id: 4, title: "Calculate TAM Size for Beachhead Market", description: "Total Addressable Market for beachhead" },
+                        { id: 9, title: "Identify Your Next 10 Customers", description: "Who will buy after your first customer?" }
+                    ]
+                },
+                {
+                    area: "What Can You Do for Your Customer?",
+                    steps: [
+                        { id: 5, title: "Profile the Persona", description: "Deep dive into end user characteristics", problemFocus: true },
+                        { id: 6, title: "Full Life Cycle Use Case", description: "Complete journey with your product", problemFocus: true },
+                        { id: 7, title: "High-Level Product Specification", description: "What you're building" },
+                        { id: 8, title: "Quantify the Value Proposition", description: "Measure customer benefit", problemFocus: true }
+                    ]
+                },
+                {
+                    area: "How Does the Customer Acquire Your Product?",
+                    steps: [
+                        { id: 10, title: "Define Your Core", description: "Unique competitive advantage" },
+                        { id: 11, title: "Chart Your Competitive Position", description: "Where you stand vs. competitors" },
+                        { id: 12, title: "Determine the Customer's DMU", description: "Decision Making Unit" },
+                        { id: 13, title: "Map the Process to Acquire a Paying Customer", description: "Sales process" },
+                        { id: 14, title: "Calculate TAM Size for Follow-on Markets", description: "Total Addressable Market for expansion" }
+                    ]
+                },
+                {
+                    area: "How Do You Make Money?",
+                    steps: [
+                        { id: 15, title: "Design a Business Model", description: "How you create and capture value" },
+                        { id: 16, title: "Set Your Pricing Framework", description: "How much will customers pay?" },
+                        { id: 17, title: "Calculate LTV", description: "Lifetime Value of customer" },
+                        { id: 18, title: "Design a Scalable Revenue Engine", description: "Create a repeatable sales process" },
+                        { id: 19, title: "Calculate COCA", description: "Cost of Customer Acquisition" },
+                        { id: 20, title: "Identify Key Assumptions", description: "What must be true?" },
+                        { id: 21, title: "Test Key Assumptions", description: "Validate your hypotheses" }
+                    ]
+                },
+                {
+                    area: "How Do You Design & Build Your Product?",
+                    steps: [
+                        { id: 22, title: "Define MVBP", description: "Minimum Viable Business Product" },
+                        { id: 23, title: "Show That 'Dogs Will Eat the Dog Food'", description: "Customers will use it" },
+                        { id: 24, title: "Develop a Product Plan", description: "Roadmap beyond MVBP" }
+                    ]
+                }
+            ];
+
+            const visualCanvasBoxes = [
+                { id: 1, title: "Raison d'Être", subtitle: "Mission, Values, BHAG", steps: [], position: "top" },
+                { id: 4, title: "Competitive Advantage", subtitle: "Why You? (Moats, Core)", steps: [10, 11], position: "top" },
+                { id: 5, title: "Customer Acquisition", subtitle: "How Customers Find You", steps: [12, 13], position: "top" },
+                { id: 8, title: "Overall Economics", subtitle: "Company Profitability", steps: [17, 19], position: "top" },
+                { id: 9, title: "Design & Build", subtitle: "Product Creation", steps: [20, 21, 22, 23, 24], position: "top" },
+                { id: 2, title: "Initial Market", subtitle: "Your Customer", steps: [1, 2, 3, 4, 9], position: "bottom" },
+                { id: 3, title: "Value Creation", subtitle: "What You Do", steps: [5, 6, 7, 8], position: "bottom" },
+                { id: 6, title: "Product Economics", subtitle: "Unit Economics", steps: [15, 16], position: "bottom" },
+                { id: 7, title: "Revenue", subtitle: "Revenue Capture", steps: [14, 18], position: "bottom" },
+                { id: 10, title: "Scaling", subtitle: "Growth Strategy", steps: [14, 24], position: "bottom" }
+            ];
+
+            // Load from Firebase on mount
+            useEffect(() => {
+                const initFirebase = async () => {
+                    await window.firebaseReady;
+                    loadFromCloud();
+                    
+                    // Set up real-time listener
+                    unsubscribeRef.current = window.firebase.onSnapshot(window.firebase.canvasDocRef, (doc) => {
+                        if (!isLocalUpdate.current && doc.exists()) {
+                            const data = doc.data();
+                            setCanvasData(data.canvasData || {});
+                            setLastSaved(data.lastUpdated);
+                            setLastUpdatedBy(data.updatedBy);
+                            setSyncStatus('synced');
+                        }
+                    });
+                };
+                
+                initFirebase();
+                
+                return () => {
+                    if (unsubscribeRef.current) {
+                        unsubscribeRef.current();
+                    }
+                };
+            }, []);
+
+            useEffect(() => {
+                if (filteredSteps && activeTab === 'canvas') {
+                    const areaIdx = canvasStructure.findIndex(a => 
+                        a.steps.some(s => filteredSteps.includes(s.id))
+                    );
+                    if (areaIdx !== -1) {
+                        setExpandedSections({ [areaIdx]: true });
+                    }
+                }
+            }, [filteredSteps, activeTab]);
+
+            const loadFromCloud = async () => {
+                try {
+                    setSyncStatus('connecting');
+                    const docSnap = await window.firebase.getDoc(window.firebase.canvasDocRef);
+                    
+                    if (docSnap.exists()) {
+                        const data = docSnap.data();
+                        setCanvasData(data.canvasData || {});
+                        setLastSaved(data.lastUpdated);
+                        setLastUpdatedBy(data.updatedBy);
+                        setSyncStatus('synced');
+                    } else {
+                        // No data yet, check localStorage for migration
+                        const localData = localStorage.getItem('de-canvas-data');
+                        if (localData) {
+                            const parsed = JSON.parse(localData);
+                            setCanvasData(parsed);
+                            // Auto-save to cloud
+                            await saveToCloud(parsed, true);
+                        }
+                        setSyncStatus('synced');
+                    }
+                } catch (error) {
+                    console.error('Error loading from cloud:', error);
+                    setSyncStatus('error');
+                    // Fallback to localStorage
+                    const saved = localStorage.getItem('de-canvas-data');
+                    if (saved) {
+                        setCanvasData(JSON.parse(saved));
+                    }
+                }
+            };
+
+            const saveToCloud = async (dataToSave = null, autoMigration = false) => {
+                try {
+                    setSyncStatus('syncing');
+                    isLocalUpdate.current = true;
+                    
+                    const timestamp = new Date().toISOString();
+                    let updater = lastUpdatedBy;
+                    
+                    if (!autoMigration && !updater) {
+                        updater = prompt("Who is saving? (Bill/Brian/Jon)") || "Unknown";
+                    } else if (autoMigration) {
+                        updater = "Auto-migration";
+                    }
+                    
+                    await window.firebase.setDoc(window.firebase.canvasDocRef, {
+                        canvasData: dataToSave || canvasData,
+                        lastUpdated: timestamp,
+                        updatedBy: updater
+                    });
+                    
+                    setLastSaved(timestamp);
+                    setLastUpdatedBy(updater);
+                    setSyncStatus('synced');
+                    
+                    // Also save to localStorage as backup
+                    localStorage.setItem('de-canvas-data', JSON.stringify(dataToSave || canvasData));
+                } catch (error) {
+                    console.error('Error saving to cloud:', error);
+                    setSyncStatus('error');
+                    if (!autoMigration) {
+                        alert('Error saving to cloud. Data saved locally as backup.');
+                    }
+                    // Save to localStorage as fallback
+                    localStorage.setItem('de-canvas-data', JSON.stringify(dataToSave || canvasData));
+                } finally {
+                    isLocalUpdate.current = false;
+                }
+            };
+
+            const saveData = () => {
+                saveToCloud();
+            };
+
+            const updateStep = (stepId, field, value) => {
+                setCanvasData(prev => ({
+                    ...prev,
+                    [stepId]: {
+                        ...prev[stepId],
+                        [field]: value
+                    }
+                }));
+            };
+
+            const toggleSection = (sectionId) => {
+                setExpandedSections(prev => ({
+                    ...prev,
+                    [sectionId]: !prev[sectionId]
+                }));
+            };
+
+            const getStepStatus = (stepId) => {
+                const step = canvasData[stepId];
+                if (!step) return 'not-started';
+                if (step.completed) return 'completed';
+                if (step.inProgress || step.notes || step.billNotes || step.brianNotes || step.jonNotes) return 'in-progress';
+                return 'not-started';
+            };
+
+            const getStepCompletionPercentage = (steps) => {
+                if (!steps || steps.length === 0) return 0;
+                const completed = steps.filter(stepId => getStepStatus(stepId) === 'completed').length;
+                return Math.round((completed / steps.length) * 100);
+            };
+
+            const exportData = () => {
+                const dataStr = JSON.stringify(canvasData, null, 2);
+                const dataBlob = new Blob([dataStr], { type: 'application/json' });
+                const url = URL.createObjectURL(dataBlob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `de-canvas-export-${new Date().toISOString().split('T')[0]}.json`;
+                link.click();
+            };
+
+            const importData = (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = async (e) => {
+                        try {
+                            const imported = JSON.parse(e.target.result);
+                            setCanvasData(imported);
+                            await saveToCloud(imported, true);
+                            alert('Data imported and synced to cloud successfully!');
+                        } catch (error) {
+                            alert('Error importing file');
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            };
+
+            const handleEditStep = (stepId) => {
+                const areaIdx = canvasStructure.findIndex(a => 
+                    a.steps.some(s => s.id === stepId)
+                );
+                
+                setFilteredSteps([stepId]);
+                
+                if (areaIdx !== -1) {
+                    setExpandedSections({ [areaIdx]: true });
+                }
+                
+                setActiveTab('canvas');
+            };
+
+            const handleVisualBoxClick = (boxSteps) => {
+                if (boxSteps.length > 0) {
+                    setFilteredSteps(boxSteps);
+                    const areaIdx = canvasStructure.findIndex(a => 
+                        a.steps.some(s => boxSteps.includes(s.id))
+                    );
+                    if (areaIdx !== -1) {
+                        setExpandedSections({ [areaIdx]: true });
+                    }
+                    setActiveTab('canvas');
+                }
+            };
+
+            const displayStructure = filteredSteps 
+                ? canvasStructure.map(area => ({
+                    ...area,
+                    steps: area.steps.filter(step => filteredSteps.includes(step.id))
+                  })).filter(area => area.steps.length > 0)
+                : canvasStructure;
+
+            const shouldAutoExpand = displayStructure.length === 1 && filteredSteps;
+
+            const getSyncStatusText = () => {
+                switch(syncStatus) {
+                    case 'synced': return 'Synced';
+                    case 'syncing': return 'Saving...';
+                    case 'error': return 'Error';
+                    default: return 'Connecting...';
+                }
+            };
+
+            return (
+                <div className="min-h-screen bg-gray-100">
+                    <div className="max-w-7xl mx-auto p-6">
+                        <div className="bg-white rounded-lg shadow-lg mb-6 p-6">
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <h1 className="text-3xl font-bold text-gray-900">Disciplined Entrepreneurship Canvas</h1>
+                                    <p className="text-gray-600 mt-1">
+                                        24 Steps to Success - PSE Edition
+                                        <span className="ml-3 text-sm">
+                                            <span className={`sync-indicator ${syncStatus}`}></span>
+                                            {getSyncStatusText()}
+                                        </span>
+                                    </p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <button onClick={saveData} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700">
+                                        💾 Save to Cloud
+                                    </button>
+                                    <button onClick={exportData} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+                                        📥 Export Backup
+                                    </button>
+                                    <label className="px-4 py-2 bg-purple-600 text-white rounded hover:bg-purple-700 cursor-pointer">
+                                        📤 Import Backup
+                                        <input type="file" accept=".json" onChange={importData} className="hidden" />
+                                    </label>
+                                </div>
+                            </div>
+                            {lastSaved && (
+                                <p className="text-sm text-gray-500 mt-2">
+                                    Last saved: {new Date(lastSaved).toLocaleString()}
+                                    {lastUpdatedBy && ` by ${lastUpdatedBy}`}
+                                </p>
+                            )}
+                        </div>
+
+                        <div className="bg-white rounded-lg shadow-lg mb-6">
+                            <div className="flex border-b">
+                                <button
+                                    onClick={() => setActiveTab('progress')}
+                                    className={`px-6 py-3 font-medium ${
+                                        activeTab === 'progress' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600'
+                                    }`}
+                                >
+                                    Progress
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('summary')}
+                                    className={`px-6 py-3 font-medium ${
+                                        activeTab === 'summary' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600'
+                                    }`}
+                                >
+                                    Summary
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('canvas')}
+                                    className={`px-6 py-3 font-medium ${
+                                        activeTab === 'canvas' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600'
+                                    }`}
+                                >
+                                    DE Canvas
+                                </button>
+                                <button
+                                    onClick={() => setActiveTab('visual')}
+                                    className={`px-6 py-3 font-medium ${
+                                        activeTab === 'visual' ? 'border-b-2 border-blue-600 text-blue-600' : 'text-gray-600'
+                                    }`}
+                                >
+                                    Visual Canvas
+                                </button>
+                            </div>
+                        </div>
+
+                        <div>
+                            {activeTab === 'progress' && (
+                                <div className="space-y-6">
+                                    <div className="bg-white rounded-lg shadow p-6">
+                                        <h2 className="text-2xl font-bold mb-4">Overall Progress</h2>
+                                        <div className="grid grid-cols-3 gap-4 mb-6">
+                                            {(() => {
+                                                const allSteps = canvasStructure.flatMap(area => area.steps);
+                                                const completedSteps = allSteps.filter(step => getStepStatus(step.id) === 'completed').length;
+                                                const inProgressSteps = allSteps.filter(step => getStepStatus(step.id) === 'in-progress').length;
+                                                
+                                                return (
+                                                    <>
+                                                        <div className="bg-green-50 p-4 rounded">
+                                                            <div className="text-3xl font-bold text-green-600">{completedSteps}</div>
+                                                            <div className="text-sm text-gray-600">Completed</div>
+                                                        </div>
+                                                        <div className="bg-yellow-50 p-4 rounded">
+                                                            <div className="text-3xl font-bold text-yellow-600">{inProgressSteps}</div>
+                                                            <div className="text-sm text-gray-600">In Progress</div>
+                                                        </div>
+                                                        <div className="bg-blue-50 p-4 rounded">
+                                                            <div className="text-3xl font-bold text-blue-600">{allSteps.length - completedSteps - inProgressSteps}</div>
+                                                            <div className="text-sm text-gray-600">Not Started</div>
+                                                        </div>
+                                                        <div className="col-span-3">
+                                                            <div className="w-full bg-gray-200 rounded-full h-4 mb-2">
+                                                                <div 
+                                                                    className="bg-green-600 h-4 rounded-full transition-all"
+                                                                    style={{ width: `${(completedSteps / allSteps.length) * 100}%` }}
+                                                                ></div>
+                                                            </div>
+                                                            <div className="text-sm text-gray-600 text-right">
+                                                                {Math.round((completedSteps / allSteps.length) * 100)}% Complete
+                                                            </div>
+                                                        </div>
+                                                    </>
+                                                );
+                                            })()}
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white rounded-lg shadow overflow-hidden">
+                                        <table className="min-w-full">
+                                            <thead className="bg-gray-50">
+                                                <tr>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Step</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Title</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                                                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Area</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y divide-gray-200">
+                                                {canvasStructure.map(area => 
+                                                    area.steps.map(step => {
+                                                        const status = getStepStatus(step.id);
+                                                        return (
+                                                            <tr 
+                                                                key={step.id} 
+                                                                className="hover:bg-gray-50 cursor-pointer"
+                                                                onClick={() => handleEditStep(step.id)}
+                                                            >
+                                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">{step.id}</td>
+                                                                <td className="px-6 py-4 text-sm">{step.title}</td>
+                                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                                    <span className={`px-2 py-1 rounded-full text-xs ${
+                                                                        status === 'completed' ? 'bg-green-100 text-green-800' :
+                                                                        status === 'in-progress' ? 'bg-yellow-100 text-yellow-800' :
+                                                                        'bg-gray-100 text-gray-800'
+                                                                    }`}>
+                                                                        {status === 'completed' ? 'Completed' :
+                                                                        status === 'in-progress' ? 'In Progress' : 'Not Started'}
+                                                                    </span>
+                                                                </td>
+                                                                <td className="px-6 py-4 text-sm text-gray-600">{area.area}</td>
+                                                            </tr>
+                                                        );
+                                                    })
+                                                )}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                </div>
+                            )}
+
+                            {activeTab === 'summary' && (
+                                <div className="space-y-6">
+                                    {canvasStructure.map(area => (
+                                        <div key={area.area} className="bg-white rounded-lg shadow p-6">
+                                            <h3 className="text-xl font-bold mb-4">{area.area}</h3>
+                                            <div className="space-y-4">
+                                                {area.steps.map(step => {
+                                                    const stepData = canvasData[step.id] || {};
+                                                    const status = getStepStatus(step.id);
+                                                    return (
+                                                        <div key={step.id} className="border-l-4 border-blue-500 pl-4">
+                                                            <div className="flex items-start justify-between mb-2">
+                                                                <div className="flex-1">
+                                                                    <div className="font-bold text-lg">
+                                                                        Step {step.id}: {step.title}
+                                                                    </div>
+                                                                    <div className="text-sm text-gray-600 mb-2">{step.description}</div>
+                                                                    <span className={`inline-block px-2 py-1 rounded text-xs ${
+                                                                        status === 'completed' ? 'bg-green-100 text-green-800' :
+                                                                        status === 'in-progress' ? 'bg-yellow-100 text-yellow-800' :
+                                                                        'bg-gray-100 text-gray-800'
+                                                                    }`}>
+                                                                        {status === 'completed' ? 'Completed' :
+                                                                        status === 'in-progress' ? 'In Progress' : 'Not Started'}
+                                                                    </span>
+                                                                </div>
+                                                                <button 
+                                                                    onClick={() => handleEditStep(step.id)}
+                                                                    className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                                                                >
+                                                                    Edit →
+                                                                </button>
+                                                            </div>
+                                                            {stepData.notes && (
+                                                                <div className="mt-2 p-3 bg-gray-50 rounded text-sm">
+                                                                    <div className="font-medium mb-1">Notes:</div>
+                                                                    <div className="whitespace-pre-wrap">{stepData.notes}</div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            {activeTab === 'canvas' && (
+                                <div className="space-y-6">
+                                    {filteredSteps && (
+                                        <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded flex justify-between items-center">
+                                            <div>
+                                                <div className="font-bold text-blue-900">Filtered View</div>
+                                                <div className="text-sm text-blue-700">Showing only steps: {filteredSteps.join(', ')}</div>
+                                            </div>
+                                            <button 
+                                                onClick={() => setFilteredSteps(null)}
+                                                className="px-3 py-1 bg-blue-600 text-white rounded hover:bg-blue-700 text-sm"
+                                            >
+                                                Show All Steps
+                                            </button>
+                                        </div>
+                                    )}
+                                    
+                                    {displayStructure.map((area, displayIdx) => {
+                                        const originalAreaIdx = canvasStructure.findIndex(a => a.area === area.area);
+                                        const isExpanded = shouldAutoExpand || expandedSections[originalAreaIdx];
+                                        
+                                        return (
+                                            <div key={originalAreaIdx} className="bg-white rounded-lg shadow">
+                                                <div 
+                                                    className="p-6 cursor-pointer flex justify-between items-center hover:bg-gray-50"
+                                                    onClick={() => toggleSection(originalAreaIdx)}
+                                                >
+                                                    <h3 className="text-xl font-bold">{area.area}</h3>
+                                                    <span>{isExpanded ? '▲' : '▼'}</span>
+                                                </div>
+                                                
+                                                {isExpanded && (
+                                                    <div className="p-6 pt-0 space-y-6">
+                                                        {area.steps.map(step => {
+                                                            const stepData = canvasData[step.id] || {};
+                                                            return (
+                                                                <div key={step.id} className={`border rounded-lg p-4 ${step.problemFocus ? 'border-orange-400 bg-orange-50' : 'border-gray-200'}`}>
+                                                                    {step.problemFocus && (
+                                                                        <div className="mb-3 p-2 bg-orange-100 border border-orange-300 rounded text-sm">
+                                                                            <strong>🎯 Problem Focus:</strong> Remember to validate the customer's pain before building
+                                                                        </div>
+                                                                    )}
+                                                                    <div className="flex justify-between items-start mb-4">
+                                                                        <div className="flex-1">
+                                                                            <h4 className="font-bold text-lg">Step {step.id}: {step.title}</h4>
+                                                                            <p className="text-gray-600 text-sm">{step.description}</p>
+                                                                        </div>
+                                                                        <div className="flex gap-2">
+                                                                            <button
+                                                                                onClick={() => updateStep(step.id, 'inProgress', !stepData.inProgress)}
+                                                                                className={`px-3 py-1 rounded border text-sm ${
+                                                                                    stepData.inProgress ? 'bg-yellow-100 border-yellow-400' : 'hover:bg-gray-50'
+                                                                                }`}
+                                                                            >
+                                                                                {stepData.inProgress ? '⏳ In Progress' : 'Start'}
+                                                                            </button>
+                                                                            <button
+                                                                                onClick={() => updateStep(step.id, 'completed', !stepData.completed)}
+                                                                                className={`px-3 py-1 rounded border text-sm ${
+                                                                                    stepData.completed ? 'bg-green-100 border-green-400' : 'hover:bg-gray-50'
+                                                                                }`}
+                                                                            >
+                                                                                {stepData.completed ? '✓ Completed' : 'Complete'}
+                                                                            </button>
+                                                                        </div>
+                                                                    </div>
+
+                                                                    <div className="space-y-4">
+                                                                        <div>
+                                                                            <div className="flex justify-between items-center mb-1">
+                                                                                <label className="block text-sm font-medium">Instructions (from original app)</label>
+                                                                                <button
+                                                                                    onClick={() => updateStep(step.id, 'showReference', !stepData.showReference)}
+                                                                                    className="text-sm text-blue-600 hover:text-blue-800"
+                                                                                >
+                                                                                    {stepData.showReference ? 'Hide' : 'Show'}
+                                                                                </button>
+                                                                            </div>
+                                                                            {stepData.showReference && (
+                                                                                <div
+                                                                                    contentEditable
+                                                                                    suppressContentEditableWarning
+                                                                                    onBlur={(e) => updateStep(step.id, 'reference', e.target.innerHTML)}
+                                                                                    onPaste={(e) => {
+                                                                                        e.preventDefault();
+                                                                                        const html = e.clipboardData.getData('text/html') || 
+                                                                                                   e.clipboardData.getData('text/plain').replace(/\n/g, '<br>');
+                                                                                        document.execCommand('insertHTML', false, html);
+                                                                                    }}
+                                                                                    dangerouslySetInnerHTML={{ __html: stepData.reference || '' }}
+                                                                                    className="w-full p-2 border rounded min-h-32 bg-gray-50 overflow-auto"
+                                                                                    style={{ 
+                                                                                        whiteSpace: 'normal',
+                                                                                        wordWrap: 'break-word',
+                                                                                        maxWidth: '100%'
+                                                                                    }}
+                                                                                />
+                                                                            )}
+                                                                        </div>
+
+                                                                        <div>
+                                                                            <label className="block text-sm font-medium mb-1">Resource Links</label>
+                                                                            <textarea
+                                                                                value={stepData.resourceLinks || ''}
+                                                                                onChange={(e) => updateStep(step.id, 'resourceLinks', e.target.value)}
+                                                                                className="w-full p-2 border rounded h-20 font-mono text-sm"
+                                                                                placeholder="Add URLs (one per line)"
+                                                                            />
+                                                                            {stepData.resourceLinks && (
+                                                                                <div className="mt-2 space-y-1">
+                                                                                    {stepData.resourceLinks.split('\n').filter(link => link.trim()).map((link, idx) => (
+                                                                                        <div key={idx}>
+                                                                                            <a 
+                                                                                                href={link.trim()} 
+                                                                                                target="_blank" 
+                                                                                                rel="noopener noreferrer"
+                                                                                                className="text-blue-600 hover:text-blue-800 underline text-sm truncate"
+                                                                                            >
+                                                                                                {link.trim()}
+                                                                                            </a>
+                                                                                        </div>
+                                                                                    ))}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                        
+                                                                        <div>
+                                                                            <label className="block text-sm font-medium mb-1">Notes</label>
+                                                                            <textarea
+                                                                                value={stepData.notes || ''}
+                                                                                onChange={(e) => updateStep(step.id, 'notes', e.target.value)}
+                                                                                className="w-full p-2 border rounded h-24"
+                                                                                placeholder="Add your notes here..."
+                                                                            />
+                                                                        </div>
+
+                                                                        <div className="grid grid-cols-3 gap-4">
+                                                                            <div>
+                                                                                <label className="block text-sm font-medium mb-1 text-blue-700">Bill's Notes</label>
+                                                                                <textarea
+                                                                                    value={stepData.billNotes || ''}
+                                                                                    onChange={(e) => updateStep(step.id, 'billNotes', e.target.value)}
+                                                                                    className="w-full p-2 border border-blue-300 rounded h-20 text-sm"
+                                                                                    placeholder="Bill's perspective..."
+                                                                                />
+                                                                            </div>
+                                                                            <div>
+                                                                                <label className="block text-sm font-medium mb-1 text-green-700">Brian's Notes</label>
+                                                                                <textarea
+                                                                                    value={stepData.brianNotes || ''}
+                                                                                    onChange={(e) => updateStep(step.id, 'brianNotes', e.target.value)}
+                                                                                    className="w-full p-2 border border-green-300 rounded h-20 text-sm"
+                                                                                    placeholder="Brian's perspective..."
+                                                                                />
+                                                                            </div>
+                                                                            <div>
+                                                                                <label className="block text-sm font-medium mb-1 text-purple-700">Jon's Notes</label>
+                                                                                <textarea
+                                                                                    value={stepData.jonNotes || ''}
+                                                                                    onChange={(e) => updateStep(step.id, 'jonNotes', e.target.value)}
+                                                                                    className="w-full p-2 border border-purple-300 rounded h-20 text-sm"
+                                                                                    placeholder="Jon's perspective..."
+                                                                                />
+                                                                            </div>
+                                                                        </div>
+                                                                    </div>
+                                                                </div>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
+
+                            {activeTab === 'visual' && (
+                                <div className="bg-white rounded-lg shadow p-6">
+                                    <h2 className="text-2xl font-bold mb-2">Disciplined Entrepreneurship Canvas</h2>
+                                    <p className="text-gray-600 mb-6">The 10-box strategic overview</p>
+
+                                    <div className="space-y-8">
+                                        <div className="grid grid-cols-5 gap-4">
+                                            {visualCanvasBoxes.filter(box => box.position === 'top').map((box, idx) => {
+                                                const completion = getStepCompletionPercentage(box.steps);
+                                                return (
+                                                    <div key={box.id} className="relative">
+                                                        <div 
+                                                            onClick={() => handleVisualBoxClick(box.steps)}
+                                                            className="border-2 border-blue-600 rounded-lg p-3 hover:shadow-lg transition-shadow cursor-pointer bg-blue-50 h-40 flex flex-col overflow-hidden"
+                                                        >
+                                                            <div className="text-xs font-bold text-blue-900 mb-1 leading-tight">{box.id}. {box.title}</div>
+                                                            <div className="text-xs text-gray-600 mb-3 leading-tight flex-shrink-0">{box.subtitle}</div>
+                                                            {box.steps.length > 0 && (
+                                                                <div className="mt-auto">
+                                                                    <div className="w-full bg-gray-200 rounded-full h-2 mb-1">
+                                                                        <div 
+                                                                            className={`h-2 rounded-full ${
+                                                                                completion === 100 ? 'bg-green-500' :
+                                                                                completion > 0 ? 'bg-yellow-500' : 'bg-blue-300'
+                                                                            }`}
+                                                                            style={{ width: `${completion}%` }}
+                                                                        ></div>
+                                                                    </div>
+                                                                    <div className="text-xs text-gray-500">Steps: {box.steps.join(', ')}</div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        {idx < 4 && (
+                                                            <div className="absolute top-1/2 -right-2 transform -translate-y-1/2 text-blue-600 text-2xl">→</div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+
+                                        <div className="flex justify-center">
+                                            <div className="text-red-600 text-3xl">↓</div>
+                                        </div>
+
+                                        <div className="grid grid-cols-5 gap-4">
+                                            {visualCanvasBoxes.filter(box => box.position === 'bottom').map((box, idx) => {
+                                                const completion = getStepCompletionPercentage(box.steps);
+                                                return (
+                                                    <div key={box.id} className="relative">
+                                                        <div 
+                                                            onClick={() => handleVisualBoxClick(box.steps)}
+                                                            className="border-2 border-green-600 rounded-lg p-3 hover:shadow-lg transition-shadow cursor-pointer bg-green-50 h-40 flex flex-col overflow-hidden"
+                                                        >
+                                                            <div className="text-xs font-bold text-green-900 mb-1 leading-tight">{box.id}. {box.title}</div>
+                                                            <div className="text-xs text-gray-600 mb-3 leading-tight flex-shrink-0">{box.subtitle}</div>
+                                                            {box.steps.length > 0 && (
+                                                                <div className="mt-auto">
+                                                                    <div className="w-full bg-gray-200 rounded-full h-2 mb-1">
+                                                                        <div 
+                                                                            className={`h-2 rounded-full ${
+                                                                                completion === 100 ? 'bg-green-500' :
+                                                                                completion > 0 ? 'bg-yellow-500' : 'bg-blue-300'
+                                                                            }`}
+                                                                            style={{ width: `${completion}%` }}
+                                                                        ></div>
+                                                                    </div>
+                                                                    <div className="text-xs text-gray-500">Steps: {box.steps.join(', ')}</div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                        {idx < 4 && (
+                                                            <div className="absolute top-1/2 -right-2 transform -translate-y-1/2 text-green-600 text-2xl">→</div>
+                                                        )}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-6 p-4 bg-gray-50 rounded">
+                                        <h3 className="font-bold mb-2">How to Read This Canvas</h3>
+                                        <div className="grid grid-cols-2 gap-4 text-sm">
+                                            <div>
+                                                <p className="text-gray-700">
+                                                    <strong>Click any box</strong> to jump to related steps in the DE Canvas tab.
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <p className="text-gray-700">
+                                                    <strong>Progress bars</strong> show completion status for steps related to each box.
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <p className="text-gray-700">
+                                                    <strong>Top row (1-5):</strong> Strategic foundation and value capture
+                                                </p>
+                                            </div>
+                                            <div>
+                                                <p className="text-gray-700">
+                                                    <strong>Bottom row (2-10):</strong> Tactical execution and scaling
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        // Wait for Firebase to be ready, then render
+        window.firebaseReady.then(() => {
+            const root = ReactDOM.createRoot(document.getElementById('root'));
+            root.render(<DECanvas />);
+        });
+    </script>
+</body>
+</html>
